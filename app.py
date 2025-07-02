@@ -1,111 +1,142 @@
 from dash import Dash, dcc, html, Input, Output
 import requests
-import requests.exceptions
 import plotly.graph_objs as go
 from datetime import datetime
 
 app = Dash(__name__)
 server = app.server
 
-# Cores
-BG_COLOR = "#0d1117"
-CARD_COLOR = "#161b22"
-TEXT_COLOR = "#c9d1d9"
-ACCENT_COLOR = "#58a6ff"
-ERROR_COLOR = "#f85149"
+# Cores e estilo centralizado
+COLORS = {
+    "bg": "#0d1117",
+    "card": "#1c1f26",
+    "text": "#c9d1d9",
+    "accent": "#58a6ff",
+    "error": "#f85149",
+    "gain": "#16c784",
+    "border": "#2c313a"
+}
 
-# Funções de dados com tratamento de erro
+STYLES = {
+    "card": {
+        'padding': '15px',
+        'backgroundColor': COLORS["card"],
+        'borderRadius': '6px',
+        'flex': '1',
+        'textAlign': 'center',
+        'minWidth': '200px'
+    },
+    "tableCell": {
+        'padding': '6px 10px',
+        'borderBottom': f'1px solid {COLORS["border"]}'
+    }
+}
+
+# =================== Funcoes de API ===================
 def get_coin_data(coin_id="bitcoin", days="30"):
+    url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart"
+    params = {"vs_currency": "usd", "days": days}
     try:
-        url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart"
-        params = {"vs_currency": "usd", "days": days}
         response = requests.get(url, params=params, timeout=10)
         response.raise_for_status()
         data = response.json()
+
+        if "prices" not in data or not data["prices"]:
+            raise ValueError(f"Campo 'prices' ausente ou vazio na resposta para '{coin_id}'")
+
         prices = data["prices"]
         return [p[0] for p in prices], [p[1] for p in prices]
-    except requests.exceptions.RequestException as e:
-        raise Exception("Erro ao buscar histórico da moeda") from e
+
+    except Exception as e:
+        print(f"[Erro get_coin_data] {coin_id}: {e}")
+        raise Exception(f"Erro ao buscar historico da moeda '{coin_id}': {e}")
 
 def get_coin_info(coin_id="bitcoin"):
+    url = f"https://api.coingecko.com/api/v3/coins/{coin_id}"
     try:
-        url = f"https://api.coingecko.com/api/v3/coins/{coin_id}"
         response = requests.get(url, timeout=10)
         response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        raise Exception("Erro ao buscar dados da moeda") from e
+        data = response.json()
+
+        if "market_data" not in data:
+            raise ValueError(f"'market_data' nao encontrado para '{coin_id}'")
+
+        return data
+
+    except Exception as e:
+        print(f"[Erro get_coin_info] {coin_id}: {e}")
+        raise Exception(f"Erro ao buscar dados da moeda '{coin_id}': {e}")
 
 def get_top_movers(days="7", limit=10):
+    url = "https://api.coingecko.com/api/v3/coins/markets"
+    params = {
+        "vs_currency": "usd",
+        "order": "market_cap_desc",
+        "per_page": 250,
+        "page": 1,
+        "price_change_percentage": f"{days}d"
+    }
     try:
-        url = "https://api.coingecko.com/api/v3/coins/markets"
-        params = {
-            "vs_currency": "usd",
-            "order": "market_cap_desc",
-            "per_page": 250,
-            "page": 1,
-            "price_change_percentage": f"{days}d"
-        }
         response = requests.get(url, params=params, timeout=10)
         response.raise_for_status()
         data = response.json()
+
         key = f"price_change_percentage_{days}d_in_currency"
+        if not data or not isinstance(data, list):
+            raise ValueError("Resposta invalida da API")
+
         gainers = sorted([c for c in data if c.get(key)], key=lambda x: x[key], reverse=True)[:limit]
         losers = sorted([c for c in data if c.get(key)], key=lambda x: x[key])[:limit]
         return gainers, losers
-    except requests.exceptions.RequestException as e:
-        raise Exception("Erro ao buscar top movers") from e
 
-# Layout
+    except Exception as e:
+        print(f"[Erro get_top_movers]: {e}")
+        raise Exception(f"Erro ao buscar top movers: {e}")
+
+# =================== Layout ===================
 app.layout = html.Div(style={
-    'backgroundColor': BG_COLOR,
+    'backgroundColor': COLORS["bg"],
     'padding': '30px',
     'fontFamily': 'Helvetica, sans-serif'
 }, children=[
-
-    html.H1("💰 Crypto Dashboard", style={'textAlign': 'center', 'color': TEXT_COLOR}),
+    html.H1("\U0001F4B0 Crypto Dashboard", style={'textAlign': 'center', 'color': COLORS["text"]}),
 
     html.Div([
         dcc.Dropdown(
             id='coin-input',
-            options=[{'label': label, 'value': value} for label, value in [
-                ('Bitcoin (BTC)', 'bitcoin'),
-                ('Ethereum (ETH)', 'ethereum'),
-                ('Solana (SOL)', 'solana'),
-                ('Cardano (ADA)', 'cardano'),
-                ('Dogecoin (DOGE)', 'dogecoin'),
-                ('Avalanche (AVAX)', 'avalanche'),
-                ('Polkadot (DOT)', 'polkadot'),
-                ('Chainlink (LINK)', 'chainlink'),
-                ('Shiba Inu (SHIB)', 'shiba-inu'),
-                ('Toncoin (TON)', 'ton'),
-            ]],
+            options=[
+                {'label': 'Bitcoin (BTC)', 'value': 'bitcoin'},
+                {'label': 'Ethereum (ETH)', 'value': 'ethereum'},
+                {'label': 'Solana (SOL)', 'value': 'solana'},
+                {'label': 'Cardano (ADA)', 'value': 'cardano'},
+                {'label': 'Dogecoin (DOGE)', 'value': 'dogecoin'},
+                {'label': 'Toncoin (TON)', 'value': 'ton'}
+            ],
             value='bitcoin',
             searchable=True,
             placeholder='Escolha uma cripto...',
             style={
                 'width': '300px',
-                'backgroundColor': CARD_COLOR,
-                'color': TEXT_COLOR,
-                'border': f'1px solid {ACCENT_COLOR}'
+                'backgroundColor': COLORS["card"],
+                'color': COLORS["text"]
             }
         ),
         dcc.Dropdown(
             id='days-dropdown',
-            options=[{'label': f'{d} Days', 'value': str(d)} for d in [7, 30, 90]],
+            options=[{'label': f'{d} Dias', 'value': str(d)} for d in [7, 30, 90]],
             value='30',
             style={
                 'width': '150px',
                 'marginLeft': '20px',
-                'backgroundColor': CARD_COLOR,
-                'color': TEXT_COLOR
+                'backgroundColor': COLORS["card"],
+                'color': COLORS["text"]
             }
         )
     ], style={'display': 'flex', 'flexWrap': 'wrap', 'marginBottom': '30px'}),
 
     dcc.Loading(
         type='circle',
-        color=ACCENT_COLOR,
+        color=COLORS["accent"],
         children=[
             html.Div(id='kpi-cards', style={
                 'display': 'flex',
@@ -117,20 +148,20 @@ app.layout = html.Div(style={
         ]
     ),
 
-    html.H2("📈 Top Movers", style={'color': ACCENT_COLOR, 'marginTop': '60px'}),
+    html.H2("\U0001F4C8 Top Movers", style={'color': COLORS["accent"], 'marginTop': '60px'}),
 
     dcc.Dropdown(
         id="mover-period",
         options=[
-            {"label": "Últimos 7 dias", "value": "7"},
-            {"label": "Últimos 30 dias", "value": "30"},
+            {"label": "\u00daltimos 7 dias", "value": "7"},
+            {"label": "\u00daltimos 30 dias", "value": "30"}
         ],
         value="7",
         style={
             'width': '200px',
             'marginBottom': '20px',
-            'backgroundColor': CARD_COLOR,
-            'color': TEXT_COLOR
+            'backgroundColor': COLORS["card"],
+            'color': COLORS["text"]
         }
     ),
 
@@ -139,10 +170,9 @@ app.layout = html.Div(style={
         'gap': '40px',
         'flexWrap': 'wrap'
     })
-
 ])
 
-# Callback principal
+# =================== Callbacks ===================
 @app.callback(
     Output('price-chart', 'figure'),
     Output('kpi-cards', 'children'),
@@ -153,55 +183,40 @@ def update_dashboard(coin, days):
     try:
         timestamps, prices = get_coin_data(coin, days)
         info = get_coin_info(coin)
-        current_price = info['market_data']['current_price']['usd']
-        market_cap    = info['market_data']['market_cap']['usd']
-        change_24h    = info['market_data']['price_change_percentage_24h']
-        supply        = info['market_data']['circulating_supply']
-        dates         = [datetime.fromtimestamp(ts/1000) for ts in timestamps]
 
-        def kpi(label, value, color=TEXT_COLOR):
+        market = info["market_data"]
+        dates = [datetime.fromtimestamp(ts / 1000) for ts in timestamps]
+
+        def kpi(label, value, color=COLORS["text"]):
             return html.Div([
-                html.Div(label, style={'color': ACCENT_COLOR}),
+                html.Div(label, style={'color': COLORS["accent"]}),
                 html.Div(value, style={'fontSize': '20px', 'fontWeight': 'bold', 'color': color})
-            ], style={
-                'padding': '15px',
-                'backgroundColor': CARD_COLOR,
-                'borderRadius': '6px',
-                'flex': '1',
-                'textAlign': 'center',
-                'minWidth': '200px'
-            })
+            ], style=STYLES["card"])
 
         kpis = [
-            kpi("Current Price",       f"${current_price:,.2f}"),
-            kpi("Market Cap",          f"${market_cap/1e9:.2f} B"),
-            kpi("24h Change",          f"{change_24h:+.2f}%", 
-                "#16c784" if change_24h >= 0 else ERROR_COLOR),
-            kpi("Circulating Supply",  f"{supply:,.0f}")
+            kpi("Current Price", f"${market['current_price']['usd']:,.2f}"),
+            kpi("Market Cap", f"${market['market_cap']['usd'] / 1e9:.2f} B"),
+            kpi("24h Change", f"{market['price_change_percentage_24h']:+.2f}%",
+                COLORS["gain"] if market['price_change_percentage_24h'] >= 0 else COLORS["error"]),
+            kpi("Circulating Supply", f"{market['circulating_supply']:,.0f}")
         ]
 
         fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=dates, y=prices, mode='lines', line=dict(color=ACCENT_COLOR)
-        ))
+        fig.add_trace(go.Scatter(x=dates, y=prices, mode='lines', line=dict(color=COLORS["accent"])))
         fig.update_layout(
-            plot_bgcolor=BG_COLOR,
-            paper_bgcolor=BG_COLOR,
-            font=dict(color=TEXT_COLOR),
+            plot_bgcolor=COLORS["bg"],
+            paper_bgcolor=COLORS["bg"],
+            font=dict(color=COLORS["text"]),
             margin=dict(l=40, r=40, t=40, b=20),
             height=600,
             xaxis_title="Date",
             yaxis_title="Price (USD)"
         )
-
         return fig, kpis
 
     except Exception as e:
-        return go.Figure(), [
-            html.Div(f"Erro: {str(e)}", style={'color': ERROR_COLOR})
-        ]
+        return go.Figure(), [html.Div(f"Erro ao carregar dados: {str(e)}", style={'color': COLORS["error"]})]
 
-# Callback Top Movers
 @app.callback(
     Output("top-movers", "children"),
     Input("mover-period", "value")
@@ -215,36 +230,34 @@ def update_top_movers(days):
             for i, coin in enumerate(coins):
                 pct = coin[f"price_change_percentage_{days}d_in_currency"]
                 rows.append(html.Tr([
-                    html.Td(f"{i+1}.", style={'padding': '6px 10px', 'borderBottom': '1px solid #2c313a'}),
-                    html.Td(coin["name"], style={'padding': '6px 10px', 'borderBottom': '1px solid #2c313a'}),
+                    html.Td(f"{i+1}.", style=STYLES["tableCell"]),
+                    html.Td(coin["name"], style=STYLES["tableCell"]),
                     html.Td(f"{pct:.2f}%", style={
+                        **STYLES["tableCell"],
                         'color': color,
-                        'padding': '6px 10px',
-                        'textAlign': 'right',
-                        'borderBottom': '1px solid #2c313a'
+                        'textAlign': 'right'
                     })
                 ]))
             return html.Div([
                 html.H4(title, style={'color': color, 'marginBottom': '10px'}),
                 html.Table(rows, style={
-                    'color': TEXT_COLOR,
-                    'backgroundColor': CARD_COLOR,
+                    'color': COLORS["text"],
+                    'backgroundColor': COLORS["card"],
                     'borderCollapse': 'collapse',
                     'width': '100%',
-                    'border': f'1px solid {ACCENT_COLOR}',
+                    'border': f'1px solid {COLORS["accent"]}',
                     'borderRadius': '5px'
                 })
             ], style={'flex': '1', 'minWidth': '300px'})
 
         return [
-            make_table("📈 Gainers", gainers, "#16c784"),
-            make_table("📉 Losers",  losers, ERROR_COLOR)
+            make_table("\U0001F4C8 Gainers", gainers, COLORS["gain"]),
+            make_table("\U0001F4C9 Losers", losers, COLORS["error"])
         ]
 
     except Exception as e:
-        return [html.Div(f"Erro: {str(e)}", style={'color': ERROR_COLOR})]
+        return [html.Div(f"Erro: {str(e)}", style={'color': COLORS["error"]})]
 
-# Executa o app
 if __name__ == '__main__':
-    print("🚀 Iniciando o dashboard...")
+    print("\U0001F680 Iniciando o dashboard...")
     app.run(debug=True)
