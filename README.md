@@ -23,28 +23,12 @@ Os dados são fornecidos pela API do [CoinGecko](https://www.coingecko.com/en/ap
 
 ## ▶️ Como executar
 
-1. Clone o repositório:
-   ```bash
-   git clone https://github.com/seu-usuario/seu-repositorio.git
-   cd seu-repositorio
+Execute os comandos abaixo no terminal para clonar, configurar o ambiente e rodar o app:
 
-2. Crie e ative um ambiente virtual:
-    python -m venv venv
-    source venv/bin/activate  # no Windows: venv\Scripts\activate
-
-3.Instale as dependências:
+```bash
+git clone https://github.com/seu-usuario/seu-repositorio.git
+cd seu-repositorio
+python -m venv venv
+source venv/bin/activate  # no Windows: venv\Scripts\activate
 pip install -r requirements.txt
-
-4. Execute o aplicativo:
 python app.py
-
-📌 To-do
- Adicionar exportação para CSV
-
- Deploy no Render/Heroku/Streamlit Cloud
-
- Página separada por criptomoeda
-
- Gráficos de volume de negociação
-
-Conecte-se comigo: linkedin.com/in/paulochernicharo
