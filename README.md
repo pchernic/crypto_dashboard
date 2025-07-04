@@ -32,6 +32,7 @@ python -m venv venv
 source venv/bin/activate  # no Windows: venv\Scripts\activate
 pip install -r requirements.txt
 python app.py
+```
 
 ### Série temporal 
 ![image](https://github.com/user-attachments/assets/835b8436-6b4b-4012-89de-e736ce8c3eb4)
