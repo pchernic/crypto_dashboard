@@ -32,3 +32,10 @@ python -m venv venv
 source venv/bin/activate  # no Windows: venv\Scripts\activate
 pip install -r requirements.txt
 python app.py
+
+### Série temporal 
+![alt text](image.png)
+
+### Comparação entre Criptos
+![alt text](image-1.png)
+
