@@ -34,8 +34,11 @@ pip install -r requirements.txt
 python app.py
 
 ### Série temporal 
-![alt text](image.png)
+![image](https://github.com/user-attachments/assets/835b8436-6b4b-4012-89de-e736ce8c3eb4)
+
 
 ### Comparação entre Criptos
-![alt text](image-1.png)
+
+![image](https://github.com/user-attachments/assets/e9b82751-35ff-4459-8e50-686fddf2ecc8)
+
 
